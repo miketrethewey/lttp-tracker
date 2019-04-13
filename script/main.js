@@ -208,11 +208,11 @@ for(let gameName in gameNames) {
 }
 
 var cookielock = false;
-function loadCookie() {
+function loadCookie(onInit) {
     if (cookielock)
         return;
     cookielock = true;
-    cookieobj = getConfigObjectFromCookie();
+    cookieobj = getConfigObjectFromCookie(onInit);
     setConfigObject(cookieobj);
     cookielock = false;
 }
@@ -283,18 +283,25 @@ function updateConfigFromFirebase(configobj) {
 function saveConfigToFirebase() {
 }
 
-function saveCookie() {
+function saveCookie(onInit) {
+	// onInit = false;
     if (cookielock)
         return;
     cookielock = true;
 
-    cookieobj = getConfigObject();
-    setCookie(cookieobj);
+	if (onInit) {
+		cookieobj = getConfigObjectFromCookie(onInit);
+	} else {
+		cookieobj = getConfigObject();
+		setCookie(cookieobj);
+	}
 
     cookielock = false;
 }
-
-function getConfigObjectFromCookie() {
+/**
+ * @param {*} getAllKeys If true Retain data from cookie instead of reseting to defaults.
+ */
+function getConfigObjectFromCookie(getAllKeys) {
     configobj = getCookie();
     var globalKeys = ["ts","itemValues"];
 
@@ -303,15 +310,26 @@ function getConfigObjectFromCookie() {
 			gameName = gameNames[gameName];
 			if(configobj[gameName] && configobj[gameName][key] === undefined) {
 				if(globalKeys.indexOf(key) < 0) {
-					if(cookieDefault[gameName][key] !== undefined) {
+					if (cookieDefault[gameName][key] !== undefined) {
 			            configobj[gameName][key] = cookieDefault[gameName][key];
 					}
-				} else {
+				} else if (!getAllKeys) {
 					configobj[key] = cookieDefault[key];
 				}
 			}
 		}
-    });
+	});
+	
+	if (getAllKeys) {
+		// Add any more fields you need to populate from local storage here.
+		extend(trackerData[selectedGame].items, configobj.itemValues);
+		extend(trackerData[selectedGame].chestsimportant, configobj[selectedGame].chestsimportant);
+		extend(trackerData[selectedGame].chestsopened, configobj[selectedGame].chestsopened);
+		extend(trackerData[selectedGame].chestsportal, configobj[selectedGame].chestsportal);
+		extend(trackerData[selectedGame].dungeonchests, configobj[selectedGame].dungeonchests);
+		extend(trackerData[selectedGame].dungeonbeaten, configobj[selectedGame].dungeonbeaten);
+		extend(trackerData[selectedGame].dungeonchests, configobj[selectedGame].dungeonchests);
+	}
 
     return configobj;
 }
@@ -1317,8 +1335,8 @@ function initTracker() {
     populateMapdiv(useGame);
     populateItemconfig();
 
-    loadCookie();
-    updateAll();
+    loadCookie(true);
+    updateAll(true);
 
     var games = {
 		zelda1:		"TLoZ",
@@ -1348,6 +1366,7 @@ function initTracker() {
 	}
 
 	window.addEventListener('storage', function(event) {
+		console.log('storage event fired')
 		var newValues = JSON.parse(event.newValue);
 		for(var k in Object.keys(newValues.itemValues)) {
 			k = Object.keys(newValues.itemValues)[k];
@@ -1380,11 +1399,13 @@ function initTracker() {
 	});
 }
 
-function updateAll() {
-    if(trackerData[selectedGame].items && trackerData[selectedGame].dungeonchests && trackerData[selectedGame].dungeonbeaten && trackerData[selectedGame].prizes && trackerData[selectedGame].medallions && trackerData[selectedGame].chestsopened) {
-      vm.displayVueMap = true;
-      refreshMap();
-      saveCookie();
+function updateAll(onInit) {
+	var sg = trackerData[selectedGame];
+
+	if (sg.items && sg.dungeonchests && sg.dungeonbeaten && sg.prizes && sg.medallions && sg.chestsopened) {
+		vm.displayVueMap = true;
+		refreshMap(); 
+      	saveCookie(onInit);
     }
 }
 
